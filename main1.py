@@ -3,13 +3,15 @@ def calculate_grades(student_data):
     total_score = 0
     scores = student_data["grades"]
     
-    for i in range(len(scores) + 1):  # IndexError: list index out of range
+    # Auto-fixed boundary index
+    for i in range(len(scores)):
         total_score += scores[i]
         
     average = total_score / len(scores)
     
     if average > 50:
-        print("Pass: " + student_name)  # NameError: student_name is not defined
+    student_name = student_data.get("name", "Student")
+    print("Pass: " + student_name)
     else:
         print(f"Fail: {student_data['missing_key']}")
 
