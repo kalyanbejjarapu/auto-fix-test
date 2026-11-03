@@ -1,13 +1,90 @@
-name: Run AI Test
+name: Autonomous Multi-Agent CI/CD Auto-Fix
 
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  test:
+  ci-and-autofix:
+    name: Run Tests & Autonomous Agent Swarm
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Run Python script
-      run: python main1.py
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 🧪 Detect & Execute Committed Python Files
+        id: run_tests
+        continue-on-error: true
+        run: |
+          echo "=================================================="
+          echo "🚀 DETECTING COMMITTED PYTHON FILES"
+          echo "=================================================="
+
+          # Find python files changed in the latest commit (excluding .github scripts)
+          CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | grep '\.py$' | grep -v '^\.github/' || true)
+          
+          # If no files found via git diff, check for common test files in root
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No single changed file found from git diff. Checking workspace python files..."
+            CHANGED_FILES=$(find . -maxdepth 2 -name "*.py" ! -path "*/.github/*" ! -path "*/.*" -exec basename {} \; | sort -u)
+          fi
+          
+          echo "Discovered Python files to execute:"
+          echo "$CHANGED_FILES"
+          echo "--------------------------------------------------"
+          
+          CI_FAILED=false
+          FAILED_FILE=""
+          
+          for file in $CHANGED_FILES; do
+            if [ -f "$file" ]; then
+              echo "▶️ Testing: python $file"
+              python "$file" 2>&1 | tee test_run.log
+              STATUS=${PIPESTATUS[0]}
+              
+              if [ $STATUS -ne 0 ]; then
+                echo "❌ Execution failed for: $file (Exit Code: $STATUS)"
+                CI_FAILED=true
+                FAILED_FILE="$file"
+                break
+              else
+                echo "✅ $file executed cleanly."
+              fi
+            fi
+          done
+          
+          echo "CI_FAILED=$CI_FAILED" >> $GITHUB_ENV
+          echo "FAILED_FILE=$FAILED_FILE" >> $GITHUB_ENV
+          
+          if [ "$CI_FAILED" = "true" ]; then
+            echo "Triggering Autonomous Agent Swarm to fix: $FAILED_FILE"
+          else
+            echo "All Python files passed successfully!"
+          fi
+
+      - name: 🤖 Invoke Multi-Agent Auto-Fix Swarm (Triage -> Researcher -> Engineer -> Reviewer)
+        if: env.CI_FAILED == 'true'
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "=================================================="
+          echo "🤖 INVOKING AUTONOMOUS AGENT SWARM FOR: $FAILED_FILE"
+          echo "=================================================="
+          python .github/scripts/agent_autofix.py --log test_run.log --file "$FAILED_FILE"
