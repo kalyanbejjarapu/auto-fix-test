@@ -11,6 +11,7 @@ def calculate_grades(student_data):
     
     if average > 50:
     student_name = student_data.get("name", "Student")
+    student_name = student_data.get("name", "Student")
     print("Pass: " + student_name)
     else:
         print(f"Fail: {student_data['missing_key']}")
