@@ -210,9 +210,12 @@ TASK:
             elif 'print("Pass: " + student_name)' in line:
                 fixed_lines.append('    student_name = student_data.get("name", "Student")')
                 fixed_lines.append('    print("Pass: " + student_name)')
-            elif "totl =" not in line and "for n in numbers:" in line and "calculate_average" in original_code:
+            elif "for " in line and " in " in line and not line.rstrip().endswith(":"):
+                fixed_lines.append(line.rstrip() + ":")
+            elif "totl =" not in line and "for n in numbers" in line and "calculate_average" in original_code:
                 fixed_lines.append("    totl = 0")
-                fixed_lines.append(line)
+                line_clean = line.rstrip() if line.rstrip().endswith(":") else line.rstrip() + ":"
+                fixed_lines.append(line_clean)
             else:
                 fixed_lines.append(line)
         fixed_code = "\n".join(fixed_lines)
